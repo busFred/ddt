@@ -12,7 +12,21 @@ if TYPE_CHECKING:
     import sklearn.tree._tree
 
 
-def make_ddtc_params(n_covs: int, n_responses: int, n_leaves: Optional[int]):
+def make_ddtc_params(
+    n_covs: int, n_responses: int, n_leaves: Optional[int]
+) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
+    """make ddtc parameters from scratch
+
+    Args:
+        n_covs (int): number of input covariates
+        n_responses (int): number of labels
+        n_leaves (Optional[int]): number of tree leaves
+
+    Returns:
+        th.Tensor: weights
+        th.Tensor: comparators
+        list[tuple[list[int], list[int], th.Tensor]]: leaves
+    """
     depth: int = 4 if n_leaves is None else int(math.floor(math.log2(n_leaves)))
     n_leaves = 2**depth if n_leaves is None else n_leaves
     comparators: th.Tensor = (1 / n_covs) * th.ones((2**depth - 1, 1))
@@ -54,7 +68,18 @@ def _make_init_leaves(n_responses: int, depth: int):
 
 def make_ddtc_params_from_dtc(
     dtc: skl_tree.DecisionTreeClassifier, dtype: th.dtype = th.float32
-):
+) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
+    """make DDTC parameter from DecisionTreeClassifier
+
+    Args:
+        dtc (skl_tree.DecisionTreeClassifier): the decision tree classifier to be converted
+        dtype (th.dtype, optional): the data type that the model. Defaults to th.float32.
+
+    Returns:
+        th.Tensor: weights
+        th.Tensor: comparators
+        list[tuple[list[int], list[int], th.Tensor]]: leaves
+    """
     # input shape
     n_covs: int = dtc.n_features_in_
     assert isinstance(dtc.n_classes_, (np.integer, int))
