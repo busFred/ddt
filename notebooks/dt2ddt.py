@@ -8,6 +8,8 @@ import sklearn.datasets as skl_datasets
 import sklearn.model_selection
 import sklearn.tree as skl_tree
 
+import ddt.utils
+
 if TYPE_CHECKING:
     import sklearn.tree._tree
 
@@ -33,7 +35,6 @@ def make_ddtc_params_from_dtc(dtc: skl_tree.DecisionTreeClassifier):
     # leaf nodes
     # (parents_ids_left, parents_ids_right, probs)
     leaves: list[tuple[list[int], list[int], np.ndarray]] = list()
-    init_leaves: list = list()
     # transform each dt node to ddt node
     for id in range(len(nodes)):
         if is_leaves[id]:
@@ -52,6 +53,7 @@ def make_ddtc_params_from_dtc(dtc: skl_tree.DecisionTreeClassifier):
             init_comparators.append([-thresholds[id]])
             weight_node_map.append(id)
     # from laves to init_leavs; parent_ids to parent_idxs
+    init_leaves: list[tuple[list[int], list[int], np.ndarray]] = list()
     for parent_ids_left, parent_ids_right, probs in leaves:
         parent_weight_idxs_left: list[int] = list()
         parent_weight_idxs_right: list[int] = list()
@@ -197,6 +199,12 @@ _ = skl_tree.plot_tree(dtc, label="all", node_ids=True, filled=False, impurity=F
 
 # %%
 init_weights_, init_comparators_, init_leaves_ = make_ddtc_params_from_dtc(dtc)
+init_weights_t, init_comparators_t, init_leaves_t = ddt_init_from_dt(dtc)
+
+# %%
+init_weights_, init_comparators_, init_leaves_ = ddt.utils.make_ddtc_params_from_dtc(
+    dtc
+)
 init_weights_t, init_comparators_t, init_leaves_t = ddt_init_from_dt(dtc)
 
 # %%
