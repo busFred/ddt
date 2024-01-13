@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 def make_ddtc_params(
-    n_covs: int, n_responses: int, n_leaves: Optional[int]
+    n_covs: int, n_responses: int, max_leaves: Optional[int]
 ) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
     """make ddtc parameters from scratch
 
@@ -27,8 +27,8 @@ def make_ddtc_params(
         th.Tensor: comparators
         list[tuple[list[int], list[int], th.Tensor]]: leaves
     """
-    depth: int = 4 if n_leaves is None else int(math.floor(math.log2(n_leaves)))
-    n_leaves = 2**depth if n_leaves is None else n_leaves
+    depth: int = 4 if max_leaves is None else int(math.floor(math.log2(max_leaves)))
+    max_leaves = 2**depth if max_leaves is None else max_leaves
     comparators: th.Tensor = (1 / n_covs) * th.ones((2**depth - 1, 1))
     weights: th.Tensor = th.rand((2**depth - 1, n_covs))
     leaves: list[tuple[list[int], list[int], th.Tensor]]

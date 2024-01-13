@@ -27,7 +27,7 @@ yshat_dtc: np.ndarray = dtc.predict_proba(xs_test)  # type:ignore
 
 # %%
 weights, comparators, leaves = ddt.utils.make_ddtc_params(
-    n_covs=n_covs, n_responses=n_labels, n_leaves=5
+    n_covs=n_covs, n_responses=n_labels, max_leaves=5
 )
 
 # %%
