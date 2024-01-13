@@ -70,7 +70,7 @@ class DDTC(th.nn.Module):
         # mus are membership functions for each node
         # (n_samps, n_non_leaf_nodes, 1)
         mus: th.Tensor = (self.weights * inputs_).sum(dim=2)[:, :, None]
-        mus = th.sigmoid((mus - self.comparators) * self.alpha)[:, :, 0]
+        mus = th.sigmoid((mus - self.comparators) * self.alpha)
         # (n_samps, n_non_leaf_nodes)
         mus = mus[:, :, 0]
         # (n_samps, n_leaves, n_non_leaf_nodes)
