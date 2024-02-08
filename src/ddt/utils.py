@@ -66,6 +66,68 @@ def _make_init_leaves(n_responses: int, depth: int):
     return leaves
 
 
+def make_ddtr_params_from_dtr(
+    dtr: skl_tree.DecisionTreeRegressor, dtype: th.dtype = th.float32
+) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
+    """make DDT parameter from DecisionTreeRegressor
+
+    Args:
+        dtr (skl_tree.DecisionTreeRegressor): the decision tree regressor to be converted
+        dtype (th.dtype, optional): the data type that the model. Defaults to th.float32.
+
+    Returns:
+        th.Tensor: weights
+        th.Tensor: comparators
+        list[tuple[list[int], list[int], th.Tensor]]: leaves
+    """
+    # input output shape
+    n_covs: int = dtr.n_features_in_
+    # list of all nodes
+    nodes, is_leaves = _traverse_tree_right_first(dtr.tree_)
+    features: np.ndarray = dtr.tree_.feature  # type:ignore
+    thresholds: np.ndarray = dtr.tree_.threshold  # type:ignore
+    assert dtr.tree_.node_count == len(nodes)
+    # non-leaf nodes parameters
+    init_weights_l: list[np.ndarray] = list()
+    init_comparators_l: list[list[float]] = list()
+    # i-th element in init_weights corresponds to Node(id=weight_node_map[i])
+    # id = weight_node_map[i]
+    weight_node_map: list[int] = list()
+    # leaf nodes
+    # (parents_ids_left, parents_ids_right, values)
+    leaves: list[tuple[list[int], list[int], np.ndarray]] = list()
+    # transform each dt node to ddt node
+    for id in range(len(nodes)):
+        if is_leaves[id]:
+            # parameters for leaf node
+            # probability of an instance belonging to current leaf
+            value_n: np.ndarray = np.copy(dtr.tree_.value[id, :, 0])
+            # traverse the tree backward from current leaf to root
+            # (left_parents, right_parents, p_xs)
+            leaves.append((*_reverse_traverse_tree_from_leaf(id, nodes), value_n))
+        else:
+            # parameters for non-leaf node
+            init_weight: np.ndarray = np.zeros((n_covs,))
+            init_weight[features[id]] = -1.0
+            init_weights_l.append(init_weight)
+            init_comparators_l.append([-thresholds[id]])
+            weight_node_map.append(id)
+    # from laves to init_leavs; parent_ids to parent_idxs
+    init_leaves: list[tuple[list[int], list[int], th.Tensor]] = list()
+    for parent_ids_left, parent_ids_right, value_n in leaves:
+        parent_weight_idxs_left: list[int] = list()
+        parent_weight_idxs_right: list[int] = list()
+        for id in parent_ids_left:
+            parent_weight_idxs_left.append(weight_node_map.index(id))
+        for id in parent_ids_right:
+            parent_weight_idxs_right.append(weight_node_map.index(id))
+        value: th.Tensor = th.as_tensor(value_n, dtype=dtype)
+        init_leaves.append((parent_weight_idxs_left, parent_weight_idxs_right, value))
+    init_weights: th.Tensor = th.as_tensor(np.stack(init_weights_l), dtype=dtype)
+    init_comparators: th.Tensor = th.as_tensor(init_comparators_l, dtype=dtype)
+    return init_weights, init_comparators, init_leaves
+
+
 def make_ddtc_params_from_dtc(
     dtc: skl_tree.DecisionTreeClassifier, dtype: th.dtype = th.float32
 ) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
