@@ -26,7 +26,7 @@ dtc.fit(xs_train, ys_train)
 yshat_dtc: np.ndarray = dtc.predict_proba(xs_test)  # type:ignore
 
 # %%
-weights, comparators, leaves = ddt.utils.make_ddtc_params(
+weights, comparators, leaves = ddt.utils.make_ddt_params(
     n_covs=n_covs, n_responses=n_labels, max_leaves=5
 )
 
