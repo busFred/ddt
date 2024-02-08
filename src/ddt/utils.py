@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     import sklearn.tree._tree
 
 
-def make_ddtc_params(
+def make_ddt_params(
     n_covs: int, n_responses: int, max_leaves: Optional[int]
 ) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
     """make ddtc parameters from scratch
