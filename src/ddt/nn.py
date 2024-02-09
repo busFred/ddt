@@ -96,3 +96,88 @@ class DDT(th.nn.Module):
         return outputs
 
 
+class DDTWrapper(th.nn.Module, ABC):
+    ddt: DDT
+
+    @property
+    def n_covs(self) -> int:
+        return self.ddt.n_covs
+
+    @property
+    def n_responses(self) -> int:
+        return self.ddt.n_responses
+
+    # paramters
+    @property
+    def weights(self) -> th.nn.Parameter:
+        return self.ddt.weights
+
+    @property
+    def comparators(self) -> th.nn.Parameter:
+        return self.ddt.comparators
+
+    @property
+    def alpha(self) -> th.nn.Parameter:
+        return self.ddt.alpha
+
+    @property
+    def path_masks(self) -> th.nn.Parameter:
+        return self.ddt.path_masks
+
+    @property
+    def values(self) -> th.nn.Parameter:
+        return self.ddt.values
+
+    # tree info
+    @property
+    def n_leaves(self) -> int:
+        return self.ddt.n_leaves
+
+    @property
+    def depth(self) -> int:
+        return self.ddt.depth
+
+    def __init__(self, ddt: DDT, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.ddt = ddt
+
+    def forward(self, inputs: th.Tensor, *args, **kwargs) -> th.Tensor:
+        return self.ddt.forward(inputs)
+
+
+class DDTC(DDTWrapper):
+    @property
+    def n_labels(self) -> int:
+        return self.ddt.n_responses
+
+    @staticmethod
+    def make_ddtc(
+        n_covs: int,
+        n_labels: int,
+        weights: th.Tensor,
+        comparators: th.Tensor,
+        leaves: list[tuple[list[int], list[int], th.Tensor]],
+        alpha: float,
+        *args,
+        **kwargs,
+    ) -> DDTC:
+        ddtc = DDTC(
+            ddt=DDT(
+                n_covs=n_covs,
+                n_responses=n_labels,
+                weights=weights,
+                comparators=comparators,
+                leaves=leaves,
+                alpha=alpha,
+                *args,
+                **kwargs,
+            )
+        )
+        return ddtc
+
+    def forward(self, inputs: th.Tensor, return_logits: bool = True):
+        logits: th.Tensor = super().forward(inputs)
+        if return_logits:
+            return logits
+        probs: th.Tensor = th.softmax(logits, dim=-1)
+        return probs
