@@ -3,13 +3,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
-import sklearn.datasets as skl_datasets
 import sklearn.model_selection
 import sklearn.tree as skl_tree
-
-import ddt.utils
 
 if TYPE_CHECKING:
     import sklearn.tree._tree
