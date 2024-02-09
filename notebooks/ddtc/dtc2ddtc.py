@@ -202,7 +202,7 @@ init_weights_, init_comparators_, init_leaves_ = make_ddtc_params_from_dtc(dtc)
 init_weights_t, init_comparators_t, init_leaves_t = ddt_init_from_dt(dtc)
 
 # %%
-init_weights_, init_comparators_, init_leaves_ = ddt.utils.make_ddtc_params_from_dtc(
+init_weights_, init_comparators_, init_leaves_ = ddt.utils._make_ddt_params_from_dtc(
     dtc
 )
 init_weights_t, init_comparators_t, init_leaves_t = ddt_init_from_dt(dtc)

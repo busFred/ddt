@@ -36,6 +36,27 @@ def make_ddt_params(
     return weights, comparators, leaves
 
 
+def make_ddt_params_from_dt(
+    dt: skl_tree.BaseDecisionTree, dtype: th.dtype = th.float32
+) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
+    """make DDT parameter from BaseDecisionTree
+
+    Args:
+        dt (skl_tree.BaseDecisionTree): the decision tree classifier to be converted
+        dtype (th.dtype, optional): the data type that the model. Defaults to th.float32.
+
+    Returns:
+        th.Tensor: weights
+        th.Tensor: comparators
+        list[tuple[list[int], list[int], th.Tensor]]: leaves
+    """
+    if isinstance(dt, skl_tree.DecisionTreeClassifier):
+        return _make_ddt_params_from_dtc(dt=dt, dtype=dtype)
+    elif isinstance(dt, skl_tree.DecisionTreeRegressor):
+        return _make_ddt_params_from_dtr(dt=dt, dtype=dtype)
+    raise TypeError
+
+
 def _make_init_leaves(n_responses: int, depth: int):
     # assume complete tree
     last_level: th.Tensor = th.arange(2 ** (depth - 1) - 1, 2**depth - 1)
@@ -66,13 +87,13 @@ def _make_init_leaves(n_responses: int, depth: int):
     return leaves
 
 
-def make_ddtr_params_from_dtr(
-    dtr: skl_tree.DecisionTreeRegressor, dtype: th.dtype = th.float32
+def _make_ddt_params_from_dtr(
+    dt: skl_tree.DecisionTreeRegressor, dtype: th.dtype = th.float32
 ) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
     """make DDT parameter from DecisionTreeRegressor
 
     Args:
-        dtr (skl_tree.DecisionTreeRegressor): the decision tree regressor to be converted
+        dt (skl_tree.DecisionTreeRegressor): the decision tree regressor to be converted
         dtype (th.dtype, optional): the data type that the model. Defaults to th.float32.
 
     Returns:
@@ -81,12 +102,12 @@ def make_ddtr_params_from_dtr(
         list[tuple[list[int], list[int], th.Tensor]]: leaves
     """
     # input output shape
-    n_covs: int = dtr.n_features_in_
+    n_covs: int = dt.n_features_in_
     # list of all nodes
-    nodes, is_leaves = _traverse_tree_right_first(dtr.tree_)
-    features: np.ndarray = dtr.tree_.feature  # type:ignore
-    thresholds: np.ndarray = dtr.tree_.threshold  # type:ignore
-    assert dtr.tree_.node_count == len(nodes)
+    nodes, is_leaves = _traverse_tree_right_first(dt.tree_)
+    features: np.ndarray = dt.tree_.feature  # type:ignore
+    thresholds: np.ndarray = dt.tree_.threshold  # type:ignore
+    assert dt.tree_.node_count == len(nodes)
     # non-leaf nodes parameters
     init_weights_l: list[np.ndarray] = list()
     init_comparators_l: list[list[float]] = list()
@@ -101,7 +122,7 @@ def make_ddtr_params_from_dtr(
         if is_leaves[id]:
             # parameters for leaf node
             # probability of an instance belonging to current leaf
-            value_n: np.ndarray = np.copy(dtr.tree_.value[id, :, 0])
+            value_n: np.ndarray = np.copy(dt.tree_.value[id, :, 0])
             # traverse the tree backward from current leaf to root
             # (left_parents, right_parents, p_xs)
             leaves.append((*_reverse_traverse_tree_from_leaf(id, nodes), value_n))
@@ -128,13 +149,13 @@ def make_ddtr_params_from_dtr(
     return init_weights, init_comparators, init_leaves
 
 
-def make_ddtc_params_from_dtc(
-    dtc: skl_tree.DecisionTreeClassifier, dtype: th.dtype = th.float32
+def _make_ddt_params_from_dtc(
+    dt: skl_tree.DecisionTreeClassifier, dtype: th.dtype = th.float32
 ) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
-    """make DDTC parameter from DecisionTreeClassifier
+    """make DDT parameter from DecisionTreeClassifier
 
     Args:
-        dtc (skl_tree.DecisionTreeClassifier): the decision tree classifier to be converted
+        dt (skl_tree.DecisionTreeClassifier): the decision tree classifier to be converted
         dtype (th.dtype, optional): the data type that the model. Defaults to th.float32.
 
     Returns:
@@ -143,15 +164,15 @@ def make_ddtc_params_from_dtc(
         list[tuple[list[int], list[int], th.Tensor]]: leaves
     """
     # input shape
-    n_covs: int = dtc.n_features_in_
-    assert isinstance(dtc.n_classes_, (np.integer, int))
-    n_labels: int = dtc.n_classes_
+    n_covs: int = dt.n_features_in_
+    assert isinstance(dt.n_classes_, (np.integer, int))
+    n_labels: int = dt.n_classes_
     # list of all nodes
     # (curr_id, parent_id, is_right), is_leaves
-    nodes, is_leaves = _traverse_tree_right_first(dtc.tree_)
-    features: np.ndarray = dtc.tree_.feature  # type:ignore
-    thresholds: np.ndarray = dtc.tree_.threshold  # type:ignore
-    assert dtc.tree_.node_count == len(nodes)
+    nodes, is_leaves = _traverse_tree_right_first(dt.tree_)
+    features: np.ndarray = dt.tree_.feature  # type:ignore
+    thresholds: np.ndarray = dt.tree_.threshold  # type:ignore
+    assert dt.tree_.node_count == len(nodes)
     # non-leaf nodes parameters
     init_weights_l: list[np.ndarray] = list()
     init_comparators_l: list[list[float]] = list()
@@ -167,7 +188,7 @@ def make_ddtc_params_from_dtc(
             # parameters for leaf node
             # probability of an instance belonging to current leaf
             probs_n: np.ndarray = np.zeros(n_labels)
-            probs_n[np.argmax(dtc.tree_.value[id])] = 1.0
+            probs_n[np.argmax(dt.tree_.value[id])] = 1.0
             # traverse the tree backward from current leaf to root
             # (left_parents, right_parents, p_xs)
             leaves.append((*_reverse_traverse_tree_from_leaf(id, nodes), probs_n))
