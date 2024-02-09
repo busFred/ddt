@@ -8,7 +8,7 @@ import sklearn.tree as skl_tree
 import torch as th
 import tqdm
 
-import ddt.ddtc
+import ddt.nn
 import ddt.utils
 
 # %%
@@ -29,7 +29,7 @@ yshat_dtc: np.ndarray = dtc.predict_proba(xs_test)  # type:ignore
 weights, comparators, leaves = ddt.utils._make_ddt_params_from_dtc(dtc)
 
 # %%
-ddtc = ddt.ddtc.DDTC(
+ddtc = ddt.nn.DDTC.make_ddtc(
     n_covs=n_covs,
     n_labels=n_labels,
     weights=weights,

@@ -8,7 +8,7 @@ import sklearn.tree as skl_tree
 import torch as th
 import tqdm
 
-import ddt.ddtc
+import ddt.nn
 import ddt.utils
 
 # %%
@@ -31,7 +31,7 @@ weights, comparators, leaves = ddt.utils.make_ddt_params(
 )
 
 # %%
-ddtc = ddt.ddtc.DDTC(
+ddtc = ddt.nn.DDTC.make_ddtc(
     n_covs=n_covs,
     n_labels=n_labels,
     weights=weights,
@@ -49,7 +49,7 @@ yshat_ddtc: np.ndarray = ddtc(th.as_tensor(xs_test), return_logits=False).numpy(
 # %%
 ddtc.train()
 opt = th.optim.Adam(ddtc.parameters())
-pbar = tqdm.trange(5000)
+pbar = tqdm.trange(10000)
 for itr in pbar:
     yshat_logits: th.Tensor = ddtc.forward(th.as_tensor(xs_train))
     ce_loss: th.Tensor = th.nn.functional.cross_entropy(
