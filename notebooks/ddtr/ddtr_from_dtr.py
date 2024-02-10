@@ -28,7 +28,7 @@ dtr.fit(xs_train, ys_train)
 ysh_test: np.ndarray = dtr.predict(xs_test)
 
 # %%
-weights, comparators, leaves = ddt.utils._make_ddt_params_from_dtr(dtr)
+weights, comparators, leaves = ddt.utils.make_ddt_params_from_dtr(dtr)
 
 # %%
 ddtr = ddt.nn.DDT(

@@ -51,43 +51,13 @@ def make_ddt_params_from_dt(
         list[tuple[list[int], list[int], th.Tensor]]: leaves
     """
     if isinstance(dt, skl_tree.DecisionTreeClassifier):
-        return _make_ddt_params_from_dtc(dt=dt, dtype=dtype)
+        return make_ddt_params_from_dtc(dt=dt, dtype=dtype)
     elif isinstance(dt, skl_tree.DecisionTreeRegressor):
-        return _make_ddt_params_from_dtr(dt=dt, dtype=dtype)
+        return make_ddt_params_from_dtr(dt=dt, dtype=dtype)
     raise TypeError
 
 
-def _make_init_leaves(n_responses: int, depth: int):
-    # assume complete tree
-    last_level: th.Tensor = th.arange(2 ** (depth - 1) - 1, 2**depth - 1)
-    go_left: bool = True
-    leaf_idx: int = 0
-    leaves: list[tuple[list[int], list[int], th.Tensor]] = list()
-    for _ in range(2**depth):
-        # for current leaf node
-        curr_node: int = last_level[leaf_idx].item()  # type:ignore
-        turn_left = go_left
-        left_path: list[int] = list()
-        right_path: list[int] = list()
-        # traverse {left, right} parent backward all the way up to root
-        while curr_node >= 0:
-            path = left_path if turn_left else right_path
-            path.append(curr_node)
-            prev_node: int = math.ceil(curr_node / 2) - 1
-            turn_left = False if curr_node // 2 > prev_node else True
-            curr_node = prev_node
-        #
-        if go_left:
-            go_left = False
-        else:
-            go_left = True
-            leaf_idx = leaf_idx + 1
-        new_probs: th.Tensor = th.rand(n_responses)
-        leaves.append((sorted(left_path), sorted(right_path), new_probs))
-    return leaves
-
-
-def _make_ddt_params_from_dtr(
+def make_ddt_params_from_dtr(
     dt: skl_tree.DecisionTreeRegressor, dtype: th.dtype = th.float32
 ) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
     """make DDT parameter from DecisionTreeRegressor
@@ -149,13 +119,16 @@ def _make_ddt_params_from_dtr(
     return init_weights, init_comparators, init_leaves
 
 
-def _make_ddt_params_from_dtc(
-    dt: skl_tree.DecisionTreeClassifier, dtype: th.dtype = th.float32
+def make_ddt_params_from_dtc(
+    dt: skl_tree.DecisionTreeClassifier,
+    n_labels: Optional[int] = None,
+    dtype: th.dtype = th.float32,
 ) -> tuple[th.Tensor, th.Tensor, list[tuple[list[int], list[int], th.Tensor]]]:
     """make DDT parameter from DecisionTreeClassifier
 
     Args:
         dt (skl_tree.DecisionTreeClassifier): the decision tree classifier to be converted
+        n_labels (int, optional): manually specify desired n_labels if dt.n_classes < n_labels. Defaults to None,
         dtype (th.dtype, optional): the data type that the model. Defaults to th.float32.
 
     Returns:
@@ -165,8 +138,10 @@ def _make_ddt_params_from_dtc(
     """
     # input shape
     n_covs: int = dt.n_features_in_
+    assert isinstance(dt.classes_, np.ndarray)
     assert isinstance(dt.n_classes_, (np.integer, int))
-    n_labels: int = dt.n_classes_
+    if n_labels is None:
+        n_labels = dt.n_classes_
     # list of all nodes
     # (curr_id, parent_id, is_right), is_leaves
     nodes, is_leaves = _traverse_tree_right_first(dt.tree_)
@@ -188,7 +163,11 @@ def _make_ddt_params_from_dtc(
             # parameters for leaf node
             # probability of an instance belonging to current leaf
             probs_n: np.ndarray = np.zeros(n_labels)
-            probs_n[np.argmax(dt.tree_.value[id])] = 1.0
+            if dt.n_classes_ == n_labels:
+                probs_n[np.argmax(dt.tree_.value[id])] = 1.0
+            else:
+                # (n_labels, )
+                probs_n[dt.classes_[np.argmax(dt.tree_.value[id])]] = 1.0
             # traverse the tree backward from current leaf to root
             # (left_parents, right_parents, p_xs)
             leaves.append((*_reverse_traverse_tree_from_leaf(id, nodes), probs_n))
@@ -213,6 +192,36 @@ def _make_ddt_params_from_dtc(
     init_weights: th.Tensor = th.as_tensor(np.stack(init_weights_l), dtype=dtype)
     init_comparators: th.Tensor = th.as_tensor(init_comparators_l, dtype=dtype)
     return init_weights, init_comparators, init_leaves
+
+
+def _make_init_leaves(n_responses: int, depth: int):
+    # assume complete tree
+    last_level: th.Tensor = th.arange(2 ** (depth - 1) - 1, 2**depth - 1)
+    go_left: bool = True
+    leaf_idx: int = 0
+    leaves: list[tuple[list[int], list[int], th.Tensor]] = list()
+    for _ in range(2**depth):
+        # for current leaf node
+        curr_node: int = last_level[leaf_idx].item()  # type:ignore
+        turn_left = go_left
+        left_path: list[int] = list()
+        right_path: list[int] = list()
+        # traverse {left, right} parent backward all the way up to root
+        while curr_node >= 0:
+            path = left_path if turn_left else right_path
+            path.append(curr_node)
+            prev_node: int = math.ceil(curr_node / 2) - 1
+            turn_left = False if curr_node // 2 > prev_node else True
+            curr_node = prev_node
+        #
+        if go_left:
+            go_left = False
+        else:
+            go_left = True
+            leaf_idx = leaf_idx + 1
+        new_probs: th.Tensor = th.rand(n_responses)
+        leaves.append((sorted(left_path), sorted(right_path), new_probs))
+    return leaves
 
 
 def _traverse_tree_right_first(
